@@ -1,3 +1,13 @@
 spring:
   application:
     name: nseutask
+  datasource:
+    url: jdbc:postgresql://localhost:5432/nseutask
+    username: root
+    password: root
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
