@@ -106,6 +106,15 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
+    void givenDefaultAdmin_whenLoggingIn_thenReturnsToken() throws Exception {
+        mockMvc.perform(post(LOGIN_PATH)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginBody("admin", "12345678")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").isNotEmpty());
+    }
+
+    @Test
     void givenNoToken_whenCallingProtectedPath_thenReturnsUnauthorizedWithAuthCode() throws Exception {
         mockMvc.perform(get("/api/tasks"))
                 .andExpect(status().isUnauthorized())
