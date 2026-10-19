@@ -7,6 +7,12 @@ spring:
     password: root
   jpa:
     open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+        type:
+          preferred_instant_jdbc_type: TIMESTAMP
     hibernate:
       ddl-auto: none
   liquibase:
