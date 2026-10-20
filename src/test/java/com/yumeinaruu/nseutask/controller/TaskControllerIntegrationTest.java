@@ -93,6 +93,25 @@ class TaskControllerIntegrationTest {
     }
 
     @Test
+    void givenInvalidStatusFilter_whenListingTasks_thenReturnsBadRequestWithoutInternals() throws Exception {
+        String token = registerAndLogin().token();
+
+        mockMvc.perform(get(TASKS_PATH).param("status", "UNKNOWN").header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(3002))
+                .andExpect(jsonPath("$.message").value("status: invalid value"));
+    }
+
+    @Test
+    void givenInvalidSortField_whenListingTasks_thenReturnsBadRequest() throws Exception {
+        String token = registerAndLogin().token();
+
+        mockMvc.perform(get(TASKS_PATH).param("sort", "nope").header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(3002));
+    }
+
+    @Test
     void givenAuthor_whenUpdatingTask_thenReturnsUpdatedTaskWithNextVersion() throws Exception {
         TestUser user = registerAndLogin();
         JsonNode task = createTask(user.token(), "Old title");

@@ -8,6 +8,7 @@ import org.springframework.data.mapping.PropertyReferenceException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -20,6 +21,7 @@ import java.util.stream.Collectors;
 public class ApiExceptionHandler {
 
     private static final String FIELD_ERROR_SEPARATOR = "; ";
+    private static final String INVALID_VALUE_MESSAGE = "invalid value";
 
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ErrorResponse> handleApiException(ApiException exception, HttpServletRequest request) {
@@ -36,7 +38,7 @@ public class ApiExceptionHandler {
             HttpServletRequest request
     ) {
         String invalidFields = exception.getBindingResult().getFieldErrors().stream()
-                .map(fieldError -> fieldError.getField() + ": " + fieldError.getDefaultMessage())
+                .map(fieldError -> fieldError.getField() + ": " + describeFieldError(fieldError))
                 .collect(Collectors.joining(FIELD_ERROR_SEPARATOR));
         String message = invalidFields.isBlank() ? ErrorCode.VALIDATION_ERROR.getMessage() : invalidFields;
         log.warn("Failed request validation: path={}, message={}", request.getRequestURI(), message);
@@ -80,6 +82,11 @@ public class ApiExceptionHandler {
                 ErrorCode.INTERNAL_ERROR.getMessage(),
                 request
         );
+    }
+
+    // сообщения о ошибке привязки типов содержат имена внутренних классов
+    private String describeFieldError(FieldError fieldError) {
+        return fieldError.isBindingFailure() ? INVALID_VALUE_MESSAGE : fieldError.getDefaultMessage();
     }
 
     private ResponseEntity<ErrorResponse> buildErrorResponse(
