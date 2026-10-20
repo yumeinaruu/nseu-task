@@ -3,12 +3,15 @@ package com.yumeinaruu.nseutask.exception;
 import com.yumeinaruu.nseutask.dto.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.mapping.PropertyReferenceException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import java.time.Instant;
 import java.util.stream.Collectors;
 
@@ -38,6 +41,33 @@ public class ApiExceptionHandler {
         String message = invalidFields.isBlank() ? ErrorCode.VALIDATION_ERROR.getMessage() : invalidFields;
         log.warn("Failed request validation: path={}, message={}", request.getRequestURI(), message);
         return buildErrorResponse(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_ERROR, message, request);
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLockException(
+            OptimisticLockingFailureException exception,
+            HttpServletRequest request
+    ) {
+        ErrorCode errorCode = ErrorCode.TASK_CONCURRENT_MODIFICATION;
+        log.warn("Failed API request: path={}, code={}, type={}, message={}",
+                request.getRequestURI(), errorCode.getCode(), exception.getClass().getSimpleName(),
+                exception.getMessage());
+        return buildErrorResponse(errorCode.getStatus(), errorCode, errorCode.getMessage(), request);
+    }
+
+    @ExceptionHandler({MethodArgumentTypeMismatchException.class, PropertyReferenceException.class})
+    public ResponseEntity<ErrorResponse> handleInvalidParameterException(
+            Exception exception,
+            HttpServletRequest request
+    ) {
+        log.warn("Failed request parameters: path={}, type={}, message={}",
+                request.getRequestURI(), exception.getClass().getSimpleName(), exception.getMessage());
+        return buildErrorResponse(
+                HttpStatus.BAD_REQUEST,
+                ErrorCode.VALIDATION_ERROR,
+                ErrorCode.VALIDATION_ERROR.getMessage(),
+                request
+        );
     }
 
     @ExceptionHandler(Exception.class)

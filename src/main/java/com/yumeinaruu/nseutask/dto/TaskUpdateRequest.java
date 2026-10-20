@@ -20,6 +20,9 @@ public record TaskUpdateRequest(
         @NotNull
         TaskPriority priority,
 
-        Long assigneeId
+        Long assigneeId,
+
+        @NotNull
+        Long version
 ) {
 }

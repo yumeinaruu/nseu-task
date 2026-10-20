@@ -12,6 +12,7 @@ public record TaskResponse(
         TaskPriority priority,
         UserShortResponse author,
         UserShortResponse assignee,
+        Long version,
         Instant createdAt,
         Instant updatedAt
 ) {

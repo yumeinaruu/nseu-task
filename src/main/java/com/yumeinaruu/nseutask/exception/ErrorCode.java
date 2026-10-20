@@ -15,6 +15,8 @@ public enum ErrorCode {
     // проблемы с таской 2xxx
     TASK_NOT_FOUND(2001, HttpStatus.NOT_FOUND, "Task not found"),
     TASK_ACCESS_DENIED(2002, HttpStatus.FORBIDDEN, "Access to the task is denied"),
+    TASK_CONCURRENT_MODIFICATION(2003, HttpStatus.CONFLICT, "Task was modified by someone else"),
+    INVALID_STATUS_TRANSITION(2004, HttpStatus.CONFLICT, "Status transition is not allowed"),
 
     // просто проблемы с 3xxx
     INTERNAL_ERROR(3001, HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error"),

@@ -22,6 +22,7 @@ public class TaskMapper {
                 task.getPriority(),
                 userMapper.toUserShortResponse(task.getAuthor()),
                 task.getAssignee() == null ? null : userMapper.toUserShortResponse(task.getAssignee()),
+                task.getVersion(),
                 task.getCreatedAt(),
                 task.getUpdatedAt()
         );
