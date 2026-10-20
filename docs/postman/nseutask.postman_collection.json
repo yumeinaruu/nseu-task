@@ -1,0 +1,1598 @@
+{
+  "info": {
+    "_postman_id": "6b1d6a3e-5d0a-4e0e-9a55-4c8f2d6b7a10",
+    "name": "nseutask - Task Manager",
+    "description": "Task Manager REST API.\n\n**How to use**\n1. Import this collection and the `nseutask local` environment, select the environment.\n2. Run the collection with the Runner (top to bottom) or send requests one by one.\n\nTokens are saved into the environment by the login requests and attached automatically: the collection uses Bearer `{{token}}`. Requests of the folder *Access control* switch to `{{otherToken}}` and `{{adminToken}}`.\n\nEvery request has tests; error requests check the application error code.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test(\"Response time is below 2s\", () => pm.expect(pm.response.responseTime).to.be.below(2000));"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Service",
+      "description": "Health check. Open endpoint.",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Application and database liveness.",
+            "url": {
+              "raw": "{{baseUrl}}/actuator/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "actuator",
+                "health"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Status is UP\", () => pm.expect(pm.response.json().status).to.eql(\"UP\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Auth",
+      "description": "Registration and login. Tokens are saved into the environment and attached to other requests automatically.",
+      "item": [
+        {
+          "name": "Register user",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Creates a user with the USER role. On repeated runs the user already exists and 409 is fine.",
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"User is created or already exists\", () => pm.expect(pm.response.code).to.be.oneOf([201, 409]));",
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.test(\"User has the USER role\", () => pm.expect(json.role).to.eql(\"USER\"));",
+                  "    pm.test(\"Password is not returned\", () => pm.expect(json).to.not.have.property(\"password\"));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register: username taken (1002)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Repeats the username from the previous request.",
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"email\": \"other_{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Error code is 1002\", () => pm.expect(pm.response.json().code).to.eql(1002));",
+                  "pm.test(\"Error has fixed message and path\", () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.message).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(json.path).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register: invalid body (3002)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Blank username, bad email, short password.",
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"\",\n  \"email\": \"not-an-email\",\n  \"password\": \"123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Error code is 3002\", () => pm.expect(pm.response.json().code).to.eql(3002));",
+                  "pm.test(\"Error has fixed message and path\", () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.message).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(json.path).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login user",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Saves the token as {{token}}. All requests of the collection use it by default.",
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Token is returned\", () => pm.expect(json.token).to.be.a(\"string\").and.not.empty);",
+                  "pm.environment.set(\"token\", json.token);",
+                  "const base64Payload = json.token.split(\".\")[1].replace(/-/g, \"+\").replace(/_/g, \"/\");",
+                  "const payload = JSON.parse(Buffer.from(base64Payload, \"base64\").toString(\"utf8\"));",
+                  "pm.test(\"Token contains role USER and expiration\", () => {",
+                  "    pm.expect(payload.role).to.eql(\"USER\");",
+                  "    pm.expect(payload.exp).to.be.above(payload.iat);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login: wrong password (1004)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "An unknown user gives exactly the same answer.",
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"wrong-password\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Error code is 1004\", () => pm.expect(pm.response.json().code).to.eql(1004));",
+                  "pm.test(\"Error has fixed message and path\", () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.message).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(json.path).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "The default admin is created on startup. Saves the token as {{adminToken}}.",
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{adminUsername}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Token is returned\", () => pm.expect(json.token).to.be.a(\"string\").and.not.empty);",
+                  "pm.environment.set(\"adminToken\", json.token);",
+                  "const base64Payload = json.token.split(\".\")[1].replace(/-/g, \"+\").replace(/_/g, \"/\");",
+                  "const payload = JSON.parse(Buffer.from(base64Payload, \"base64\").toString(\"utf8\"));",
+                  "pm.test(\"Token contains role ADMIN and expiration\", () => {",
+                  "    pm.expect(payload.role).to.eql(\"ADMIN\");",
+                  "    pm.expect(payload.exp).to.be.above(payload.iat);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register second user",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "A stranger, used to check access control. 409 is fine on repeated runs.",
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{otherUsername}}\",\n  \"email\": \"{{otherEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"User is created or already exists\", () => pm.expect(pm.response.code).to.be.oneOf([201, 409]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login second user",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Saves the token as {{otherToken}}.",
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{otherUsername}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Token is returned\", () => pm.expect(json.token).to.be.a(\"string\").and.not.empty);",
+                  "pm.environment.set(\"otherToken\", json.token);",
+                  "const base64Payload = json.token.split(\".\")[1].replace(/-/g, \"+\").replace(/_/g, \"/\");",
+                  "const payload = JSON.parse(Buffer.from(base64Payload, \"base64\").toString(\"utf8\"));",
+                  "pm.test(\"Token contains role USER and expiration\", () => {",
+                  "    pm.expect(payload.role).to.eql(\"USER\");",
+                  "    pm.expect(payload.exp).to.be.above(payload.iat);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Tasks",
+      "description": "CRUD, filters and pagination. Run top to bottom: the requests share {{taskId}} and {{version}}.",
+      "item": [
+        {
+          "name": "Create task",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "The author is the current user, the status starts as TODO. Saves {{taskId}}, {{version}} and {{userId}}.",
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Example title 1\",\n  \"description\": \"Example description 1\",\n  \"priority\": \"HIGH\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "pm.environment.set(\"taskId\", pm.response.json().id);",
+                  "pm.environment.set(\"version\", pm.response.json().version);",
+                  "const json = pm.response.json();",
+                  "pm.environment.set(\"userId\", json.author.id);",
+                  "pm.test(\"Defaults and author are applied\", () => {",
+                  "    pm.expect(json.status).to.eql(\"TODO\");",
+                  "    pm.expect(json.author.username).to.eql(pm.environment.get(\"username\"));",
+                  "    pm.expect(json.assignee).to.be.null;",
+                  "    pm.expect(json.version).to.eql(0);",
+                  "});",
+                  "pm.test(\"Location header points to the task\", () => pm.expect(pm.response.headers.get(\"Location\")).to.include(\"/api/tasks/\" + json.id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create task with assignee",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Assigns the task to the current user.",
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Example title 2\",\n  \"description\": \"Example description 2\",\n  \"priority\": \"LOW\",\n  \"assigneeId\": {{userId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Assignee is set\", () => pm.expect(pm.response.json().assignee.id).to.eql(Number(pm.environment.get(\"userId\"))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get task",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Task by id.",
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{taskId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{taskId}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Task id matches\", () => pm.expect(pm.response.json().id).to.eql(Number(pm.environment.get(\"taskId\"))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List tasks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "All tasks, newest first. Page size is 10 by default, 100 at most.",
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks?page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Page structure\", () => {",
+                  "    pm.expect(json.content).to.be.an(\"array\");",
+                  "    pm.expect(json.page).to.have.all.keys(\"size\", \"number\", \"totalElements\", \"totalPages\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List: filter by status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Only tasks in TODO.",
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks?status=TODO",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "TODO"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"All tasks are TODO\", () => pm.response.json().content.forEach(t => pm.expect(t.status).to.eql(\"TODO\")));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List: filter by author",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Tasks created by the current user.",
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks?authorId={{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks"
+              ],
+              "query": [
+                {
+                  "key": "authorId",
+                  "value": "{{userId}}"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"All tasks have this author\", () => pm.response.json().content.forEach(t => pm.expect(t.author.id).to.eql(Number(pm.environment.get(\"userId\")))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List: filter by assignee",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Tasks assigned to the current user.",
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks?assigneeId={{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks"
+              ],
+              "query": [
+                {
+                  "key": "assigneeId",
+                  "value": "{{userId}}"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"All tasks have this assignee\", () => pm.response.json().content.forEach(t => pm.expect(t.assignee.id).to.eql(Number(pm.environment.get(\"userId\")))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List: sort and page",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Filters combine with AND; sort accepts any task field.",
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks?authorId={{userId}}&sort=priority,desc&page=0&size=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks"
+              ],
+              "query": [
+                {
+                  "key": "authorId",
+                  "value": "{{userId}}"
+                },
+                {
+                  "key": "sort",
+                  "value": "priority,desc"
+                },
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "5"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update task",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Full replacement. 'version' must be the one from the last response; the new version is saved automatically.",
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{taskId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{taskId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Example title 3\",\n  \"description\": \"Example description 3\",\n  \"status\": \"IN_PROGRESS\",\n  \"priority\": \"HIGH\",\n  \"assigneeId\": null,\n  \"version\": {{version}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set(\"previousVersion\", pm.environment.get(\"version\"));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.environment.set(\"taskId\", pm.response.json().id);",
+                  "pm.environment.set(\"version\", pm.response.json().version);",
+                  "pm.test(\"Version is incremented\", () => pm.expect(pm.response.json().version).to.eql(Number(pm.environment.get(\"previousVersion\")) + 1));",
+                  "pm.test(\"Fields are updated\", () => pm.expect(pm.response.json().status).to.eql(\"IN_PROGRESS\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update: stale version (2003)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Sends the previous version, as if someone else already changed the task.",
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{taskId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{taskId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Example title 4\",\n  \"description\": \"Example description 4\",\n  \"status\": \"IN_PROGRESS\",\n  \"priority\": \"HIGH\",\n  \"version\": {{staleVersion}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set(\"staleVersion\", Number(pm.environment.get(\"version\")) - 1);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Error code is 2003\", () => pm.expect(pm.response.json().code).to.eql(2003));",
+                  "pm.test(\"Error has fixed message and path\", () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.message).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(json.path).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update: move to DONE",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Finishes the task.",
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{taskId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{taskId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Example title 3\",\n  \"description\": \"Example description 3\",\n  \"status\": \"DONE\",\n  \"priority\": \"HIGH\",\n  \"version\": {{version}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.environment.set(\"taskId\", pm.response.json().id);",
+                  "pm.environment.set(\"version\", pm.response.json().version);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update: DONE to TODO (2004)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "A finished task cannot go back to TODO, reopen it through IN_PROGRESS.",
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{taskId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{taskId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Example title 3\",\n  \"description\": \"Example description 3\",\n  \"status\": \"TODO\",\n  \"priority\": \"HIGH\",\n  \"version\": {{version}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Error code is 2004\", () => pm.expect(pm.response.json().code).to.eql(2004));",
+                  "pm.test(\"Error has fixed message and path\", () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.message).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(json.path).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Access control",
+      "description": "Only the author or an admin can change a task. Uses {{otherToken}} and {{adminToken}} instead of the default token.",
+      "item": [
+        {
+          "name": "Foreign user updates task (2002)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Sent as the second user.",
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{taskId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{taskId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Example title 5\",\n  \"description\": \"Example description 5\",\n  \"status\": \"DONE\",\n  \"priority\": \"LOW\",\n  \"version\": {{version}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{otherToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Error code is 2002\", () => pm.expect(pm.response.json().code).to.eql(2002));",
+                  "pm.test(\"Error has fixed message and path\", () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.message).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(json.path).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Foreign user deletes task (2002)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "description": "Sent as the second user.",
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{taskId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{taskId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{otherToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Error code is 2002\", () => pm.expect(pm.response.json().code).to.eql(2002));",
+                  "pm.test(\"Error has fixed message and path\", () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.message).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(json.path).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Foreign user reads task",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Reading is allowed for any authenticated user.",
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{taskId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{taskId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{otherToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin updates foreign task",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "An admin may change any task.",
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{taskId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{taskId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Example title 6\",\n  \"description\": \"Example description 6\",\n  \"status\": \"DONE\",\n  \"priority\": \"MEDIUM\",\n  \"version\": {{version}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.environment.set(\"taskId\", pm.response.json().id);",
+                  "pm.environment.set(\"version\", pm.response.json().version);",
+                  "pm.test(\"Title is changed\", () => pm.expect(pm.response.json().title).to.eql(\"Example title 6\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Cleanup",
+      "description": "Deletes the task and checks that it is gone.",
+      "item": [
+        {
+          "name": "Delete task",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "description": "Author deletes the task.",
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{taskId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{taskId}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get deleted task (2001)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{taskId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{taskId}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Error code is 2001\", () => pm.expect(pm.response.json().code).to.eql(2001));",
+                  "pm.test(\"Error has fixed message and path\", () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.message).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(json.path).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Errors",
+      "description": "Typical client mistakes and their codes.",
+      "item": [
+        {
+          "name": "No token (3003)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Protected endpoints need a token.",
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Error code is 3003\", () => pm.expect(pm.response.json().code).to.eql(3003));",
+                  "pm.test(\"Error has fixed message and path\", () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.message).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(json.path).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid token (3003)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "A garbage token is rejected the same way.",
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{invalidToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set(\"invalidToken\", \"not.a.jwt\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Error code is 3003\", () => pm.expect(pm.response.json().code).to.eql(3003));",
+                  "pm.test(\"Error has fixed message and path\", () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.message).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(json.path).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create task: blank title (3002)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Validation error.",
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Error code is 3002\", () => pm.expect(pm.response.json().code).to.eql(3002));",
+                  "pm.test(\"Error has fixed message and path\", () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.message).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(json.path).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create task: unknown assignee (1001)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Example title 7\",\n  \"description\": \"Example description 7\",\n  \"assigneeId\": 999999\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Error code is 1001\", () => pm.expect(pm.response.json().code).to.eql(1001));",
+                  "pm.test(\"Error has fixed message and path\", () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.message).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(json.path).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List: invalid status (3002)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "The message does not expose internals.",
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks?status=UNKNOWN",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "UNKNOWN"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Error code is 3002\", () => pm.expect(pm.response.json().code).to.eql(3002));",
+                  "pm.test(\"Error has fixed message and path\", () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.message).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(json.path).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
